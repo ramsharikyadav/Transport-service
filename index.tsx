@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import ReactDOM from 'react-dom/client';
 import { GoogleGenAI, Type } from '@google/genai';
@@ -87,18 +88,15 @@ const INITIAL_DRIVERS: Driver[] = [
 const App = () => {
   // App-level state
   const [currentUserRole, setCurrentUserRole] = useState('guest'); // 'guest', 'login', 'admin', 'driver'
-  const [loginRole, setLoginRole] = useState(''); // 'admin' or 'driver'
+  const [loginRole, setLoginRole] = useState('driver'); // 'admin' or 'driver', default to driver
   // FIX: Provide explicit types for state variables to enhance type safety.
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>(INITIAL_DRIVERS);
   // FIX: Explicitly type the vehicleTypes state to resolve property access errors.
   const [vehicleTypes, setVehicleTypes] = useState<VehicleTypes>(INITIAL_VEHICLE_TYPES);
   const [loginError, setLoginError] = useState('');
-  const [isLoginPopoverOpen, setIsLoginPopoverOpen] = useState(false);
   const [loggedInDriver, setLoggedInDriver] = useState<Driver | null>(null); // State for the logged-in driver object
   const [notifications, setNotifications] = useState<{id: number, message: string, type: string}[]>([]);
-  const loginPopoverRef = useRef(null);
-  const loginIconRef = useRef(null);
   const intervalRefs = useRef<{[key: string]: number}>({});
   const [razorpayKey, setRazorpayKey] = useState<string>('');
 
@@ -142,23 +140,6 @@ const App = () => {
         setRazorpayKey(savedKey);
     }
   }, []);
-
-  // Click outside handler for popover
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-        if (
-            isLoginPopoverOpen &&
-            loginPopoverRef.current &&
-            !(loginPopoverRef.current as any).contains(event.target) &&
-            loginIconRef.current &&
-            !(loginIconRef.current as any).contains(event.target)
-        ) {
-            setIsLoginPopoverOpen(false);
-        }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isLoginPopoverOpen]);
 
   // Click outside handler for location suggestions
   useEffect(() => {
@@ -407,9 +388,8 @@ const App = () => {
     }
     // Reset user session state
     setCurrentUserRole('guest');
-    setLoginRole('');
+    setLoginRole('driver'); // Reset to default role
     setLoggedInDriver(null);
-    setIsLoginPopoverOpen(false);
     setLoginError('');
 
     // Reset guest tracking state
@@ -594,23 +574,22 @@ const App = () => {
              className="icon-btn"
              aria-label="Track Your Booking"
              title="Track Your Booking"
-             onClick={() => { setIsTracking(true); setIsLoginPopoverOpen(false); }}
+             onClick={() => { setIsTracking(true); }}
            >
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20z"/><path d="M2 12h20"/></svg>
            </button>
         )}
         <div className="login-action-wrapper">
             <button
-            ref={loginIconRef}
             className="icon-btn"
-            aria-label={currentUserRole !== 'guest' ? 'Logout' : 'Login Options'}
-            title={currentUserRole !== 'guest' ? 'Logout' : 'Login Options'}
+            aria-label={currentUserRole !== 'guest' ? 'Logout' : 'Login'}
+            title={currentUserRole !== 'guest' ? 'Logout' : 'Login'}
             onClick={() => {
                 if (currentUserRole !== 'guest') {
-                handleLogout();
+                  handleLogout();
                 } else {
-                setIsLoginPopoverOpen(!isLoginPopoverOpen);
-                setIsTracking(false);
+                  setCurrentUserRole('login');
+                  setIsTracking(false);
                 }
             }}
             >
@@ -620,13 +599,6 @@ const App = () => {
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             )}
             </button>
-            {isLoginPopoverOpen && (
-                <div ref={loginPopoverRef} className="login-popover">
-                    <h4>Login As</h4>
-                    <button onClick={() => { setCurrentUserRole('login'); setLoginRole('admin'); setIsLoginPopoverOpen(false); }}>Administrator</button>
-                    <button onClick={() => { setCurrentUserRole('login'); setLoginRole('driver'); setIsLoginPopoverOpen(false); }}>Driver</button>
-                </div>
-            )}
         </div>
       </div>
     </header>
@@ -870,22 +842,43 @@ const App = () => {
     );
   };
 
-  const renderLogin = () => (
-    <div className="login-container view-enter-active">
-        <button className="back-button" onClick={() => setCurrentUserRole('guest')}>&larr; Back</button>
-        <h2>{loginRole === 'admin' ? 'Admin' : 'Driver'} Login</h2>
-        <form className="login-form" onSubmit={handleLogin}>
-            <div className="form-group">
-                <label htmlFor="username">Username</label>
-                <input type="text" id="username" name="username" required />
+  const renderLoginScreen = () => (
+    <div className="login-page-container view-enter-active">
+        <div className="login-info-panel">
+            <div className="login-info-content">
+                <svg className="header-logo" width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M18.333 5.333V3.5C18.333 3.224 18.109 3 17.833 3H16.5C16.224 3 16 3.224 16 3.5V5.333M6 5.333V3.5C6 3.224 6.224 3 6.5 3H7.833C8.109 3 8.333 3.224 8.333 3.5V5.333M20.5 11.5L19.233 8.34C19.099 8.01 18.788 7.8 18.438 7.8H5.562C5.212 7.8 4.901 8.01 4.767 8.34L3.5 11.5M20.5 11.5H3.5M20.5 11.5V17.5C20.5 18.328 19.828 19 19 19H18M3.5 11.5V17.5C3.5 18.328 4.172 19 5 19H6M14 19H10M17.5 15.5H18.5M5.5 15.5H6.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M14 21H10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M12 7V3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <h1>Shawn Elizey</h1>
+                <p>Your Partner on the Road.</p>
             </div>
-            <div className="form-group">
-                <label htmlFor="password">Password</label>
-                <input type="password" id="password" name="password" required />
+             <button className="back-button" onClick={() => setCurrentUserRole('guest')}>&larr; Back to Booking</button>
+        </div>
+        <div className="login-form-panel">
+            <div className="login-form-wrapper">
+                 <h2>{loginRole === 'driver' ? 'Driver Portal' : 'Admin Portal'} Login</h2>
+                 <form className="login-form" onSubmit={handleLogin}>
+                    <div className="form-group input-with-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                        <input type="text" id="username" name="username" placeholder="Username" required />
+                    </div>
+                    <div className="form-group input-with-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                        <input type="password" id="password" name="password" placeholder="Password" required />
+                    </div>
+                    {loginError && <p className="form-error">{loginError}</p>}
+                    <button type="submit" className="primary-btn">Login</button>
+                </form>
+                <p className="role-switch-prompt">
+                    {loginRole === 'driver' ? 'Are you an Administrator?' : 'Are you a Driver?'}
+                    <button onClick={() => setLoginRole(loginRole === 'driver' ? 'admin' : 'driver')}>
+                        Login here
+                    </button>
+                </p>
             </div>
-            {loginError && <p className="form-error">{loginError}</p>}
-            <button type="submit" className="primary-btn">Login</button>
-        </form>
+        </div>
     </div>
   );
 
@@ -1473,10 +1466,10 @@ const App = () => {
             .filter(b => new Date(b.date) >= new Date(new Date().setHours(0,0,0,0)) && b.bookingStatus !== 'cancelled')
             .sort((a,b) => new Date(`${a.date}T${a.time}`).getTime() - new Date(`${b.date}T${b.time}`).getTime());
 
-        // FIX: Explicitly type the accumulator in the `reduce` function to prevent
-        // incorrect type inference that was causing `groupedByDate` to have a weak
-        // type, leading to a downstream error where `bookingsOnDate.map` failed.
-        const groupedByDate = upcomingBookings.reduce((acc: Record<string, Booking[]>, booking) => {
+        // FIX: Explicitly type the accumulator in the `reduce` function. The initial
+        // value `{}` caused `groupedByDate` to have a weak type, leading to
+        // `bookingsOnDate` being inferred as `unknown` and causing a crash on `.map`.
+        const groupedByDate = upcomingBookings.reduce((acc, booking) => {
             const date = booking.date;
             if (!acc[date]) {
                 acc[date] = [];
@@ -2296,7 +2289,7 @@ const App = () => {
     }
     switch (currentUserRole) {
       case 'login':
-        return renderLogin();
+        return renderLoginScreen();
       case 'admin':
         return <AdminDashboard />;
       case 'driver':
@@ -2310,6 +2303,28 @@ const App = () => {
     }
   };
 
+  const mainContent = useMemo(() => {
+    switch (currentUserRole) {
+        case 'login':
+            return renderLoginScreen();
+        case 'admin':
+            return <AdminDashboard />;
+        case 'driver':
+            return <DriverDashboard />;
+        case 'guest':
+        default:
+            return (
+                <div className="booking-card">
+                    {renderHeader()}
+                    <main>
+                        {isTracking ? <GuestBookingStatus /> : renderBookingForm()}
+                    </main>
+                </div>
+            );
+    }
+  }, [currentUserRole, isTracking, isConfirmationVisible, isLoading, formError, guestBookings, selectedBooking, drivers, bookings, loggedInDriver]);
+
+
   return (
     <div className="app-container">
       <div className="notification-container">
@@ -2320,14 +2335,21 @@ const App = () => {
               </div>
           ))}
       </div>
-      <div className="booking-card">
-        {currentUserRole !== 'admin' && currentUserRole !== 'driver' && renderHeader()}
-        {currentUserRole === 'admin' || currentUserRole === 'driver' ? (
-          renderContent()
-        ) : (
-          <main>{renderContent()}</main>
-        )}
-      </div>
+       
+      {/* Conditionally render based on login state to allow full-page login */}
+      {currentUserRole === 'login' ? (
+          renderLoginScreen()
+      ) : (
+          <div className="booking-card">
+              {currentUserRole !== 'admin' && currentUserRole !== 'driver' && renderHeader()}
+              
+              {currentUserRole === 'admin' || currentUserRole === 'driver' ? (
+                  renderContent()
+              ) : (
+                  <main>{renderContent()}</main>
+              )}
+          </div>
+      )}
 
       {isTermsModalVisible && (
         <div className="modal-overlay" onClick={() => setIsTermsModalVisible(false)}>
