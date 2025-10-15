@@ -137,10 +137,6 @@ const App = () => {
 
   // API Key and Config checks
   useEffect(() => {
-    if (!process.env.API_KEY) {
-      console.error("API_KEY environment variable not set!");
-      addNotification("Configuration error: Gemini API Key is missing.", "error");
-    }
     const savedKey = localStorage.getItem('razorpayApiKey');
     if (savedKey) {
         setRazorpayKey(savedKey);
@@ -893,6 +889,67 @@ const App = () => {
     </div>
   );
 
+  // FIX: Moved `LiveMapComponent` outside of the `AdminDashboard` component. Defining a component that uses React Hooks inside another component is an invalid pattern that can lead to runtime errors and unpredictable behavior, including type inference failures.
+  const LiveMapComponent: React.FC<{ drivers: Driver[] }> = ({ drivers }) => {
+    const [hoveredDriver, setHoveredDriver] = useState<Driver | null>(null);
+
+    const JABALPUR_BOUNDS = {
+        minLat: 23.1, maxLat: 23.25,
+        minLng: 79.85, maxLng: 80.05
+    };
+
+    const onlineDrivers = useMemo(() => {
+        return drivers.filter(d => d.status === 'online' && d.position);
+    }, [drivers]);
+
+    const mapCoordsToSvg = (lat: number, lng: number) => {
+        const x = ((lng - JABALPUR_BOUNDS.minLng) / (JABALPUR_BOUNDS.maxLng - JABALPUR_BOUNDS.minLng)) * 100;
+        const y = ((JABALPUR_BOUNDS.maxLat - lat) / (JABALPUR_BOUNDS.maxLat - JABALPUR_BOUNDS.minLat)) * 100;
+        return { x, y };
+    };
+
+    return (
+        <div className="live-map-container">
+            <svg className="live-map-svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
+                {/* Placeholder for map background */}
+                <rect width="100" height="100" fill="#e9f5ff" />
+                <text x="50" y="50" textAnchor="middle" fill="#cde4f7" fontSize="10" fontWeight="bold">Jabalpur Area</text>
+
+                {onlineDrivers.map(driver => {
+                    const { x, y } = mapCoordsToSvg(driver.position!.lat, driver.position!.lng);
+                    const isHovered = hoveredDriver?.username === driver.username;
+                    return (
+                        <g 
+                            key={driver.username}
+                            transform={`translate(${x}, ${y}) scale(${isHovered ? 1.5 : 1})`}
+                            className="driver-map-icon-group"
+                            onMouseEnter={() => setHoveredDriver(driver)}
+                            onMouseLeave={() => setHoveredDriver(null)}
+                        >
+                            <circle cx="0" cy="0" r="2.5" className={`driver-map-pulse ${isHovered ? 'highlighted' : ''}`} />
+                            <svg x="-1.5" y="-1.5" width="3" height="3" viewBox="0 0 24 24" fill="currentColor" className="driver-map-icon"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>
+                        </g>
+                    );
+                })}
+            </svg>
+            {hoveredDriver && hoveredDriver.position && (
+                <div 
+                    className="driver-map-tooltip"
+                    style={{
+                        left: `${mapCoordsToSvg(hoveredDriver.position.lat, hoveredDriver.position.lng).x}%`,
+                        top: `${mapCoordsToSvg(hoveredDriver.position.lat, hoveredDriver.position.lng).y}%`
+                    }}
+                >
+                    {hoveredDriver.name}
+                </div>
+            )}
+            {onlineDrivers.length === 0 && (
+                <div className="map-message">No drivers are currently online.</div>
+            )}
+        </div>
+    );
+  };
+
   const AdminDashboard = () => {
     const [newDriverName, setNewDriverName] = useState('');
     const [newDriverPhone, setNewDriverPhone] = useState('');
@@ -1388,66 +1445,6 @@ const App = () => {
                     </ul>
                     <button className="primary-btn" onClick={() => setSelectedDate(null)}>Close</button>
                 </div>
-            </div>
-        );
-    };
-
-    const LiveMapComponent: React.FC<{ drivers: Driver[] }> = ({ drivers }) => {
-        const [hoveredDriver, setHoveredDriver] = useState<Driver | null>(null);
-
-        const JABALPUR_BOUNDS = {
-            minLat: 23.1, maxLat: 23.25,
-            minLng: 79.85, maxLng: 80.05
-        };
-
-        const onlineDrivers = useMemo(() => {
-            return drivers.filter(d => d.status === 'online' && d.position);
-        }, [drivers]);
-
-        const mapCoordsToSvg = (lat: number, lng: number) => {
-            const x = ((lng - JABALPUR_BOUNDS.minLng) / (JABALPUR_BOUNDS.maxLng - JABALPUR_BOUNDS.minLng)) * 100;
-            const y = ((JABALPUR_BOUNDS.maxLat - lat) / (JABALPUR_BOUNDS.maxLat - JABALPUR_BOUNDS.minLat)) * 100;
-            return { x, y };
-        };
-
-        return (
-            <div className="live-map-container">
-                <svg className="live-map-svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
-                    {/* Placeholder for map background */}
-                    <rect width="100" height="100" fill="#e9f5ff" />
-                    <text x="50" y="50" textAnchor="middle" fill="#cde4f7" fontSize="10" fontWeight="bold">Jabalpur Area</text>
-
-                    {onlineDrivers.map(driver => {
-                        const { x, y } = mapCoordsToSvg(driver.position!.lat, driver.position!.lng);
-                        const isHovered = hoveredDriver?.username === driver.username;
-                        return (
-                            <g 
-                                key={driver.username}
-                                transform={`translate(${x}, ${y}) scale(${isHovered ? 1.5 : 1})`}
-                                className="driver-map-icon-group"
-                                onMouseEnter={() => setHoveredDriver(driver)}
-                                onMouseLeave={() => setHoveredDriver(null)}
-                            >
-                                <circle cx="0" cy="0" r="2.5" className={`driver-map-pulse ${isHovered ? 'highlighted' : ''}`} />
-                                <svg x="-1.5" y="-1.5" width="3" height="3" viewBox="0 0 24 24" fill="currentColor" className="driver-map-icon"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>
-                            </g>
-                        );
-                    })}
-                </svg>
-                {hoveredDriver && hoveredDriver.position && (
-                    <div 
-                        className="driver-map-tooltip"
-                        style={{
-                            left: `${mapCoordsToSvg(hoveredDriver.position.lat, hoveredDriver.position.lng).x}%`,
-                            top: `${mapCoordsToSvg(hoveredDriver.position.lat, hoveredDriver.position.lng).y}%`
-                        }}
-                    >
-                        {hoveredDriver.name}
-                    </div>
-                )}
-                {onlineDrivers.length === 0 && (
-                    <div className="map-message">No drivers are currently online.</div>
-                )}
             </div>
         );
     };
@@ -1992,7 +1989,7 @@ const App = () => {
         const upcoming = guestBookings.filter(b => {
             const bookingDate = new Date(b.date);
             return bookingDate >= today && b.bookingStatus !== 'cancelled';
-        }).sort((a, b) => new Date(`${a.date}T${a.time}`).getTime() - new Date(`${b.date}T${b.time}`).getTime());
+        }).sort((a, b) => new Date(`${a.date}T${a.time}`).getTime() - new Date(`${b.date}T${a.time}`).getTime());
         
         let past = guestBookings.filter(b => {
             const bookingDate = new Date(b.date);
