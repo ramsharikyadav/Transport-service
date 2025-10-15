@@ -965,11 +965,13 @@ const App = () => {
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [activeTab, setActiveTab] = useState('bookings'); // 'bookings', 'calendar', 'live', 'manage'
     const [bookingView, setBookingView] = useState('current'); // 'current', 'history'
-    const [manageView, setManageView] = useState('main'); // 'main', 'drivers', 'vehicles', 'payment'
+    const [manageView, setManageView] = useState<'main' | 'drivers' | 'vehicles' | 'payment' | 'system'>('main');
     const [historyFilters, setHistoryFilters] = useState({ date: '', status: 'all', driver: 'all' });
     const [justAssigned, setJustAssigned] = useState<string | null>(null);
     const [justAddedItem, setJustAddedItem] = useState<{type: string, id: string} | null>(null);
     const [keyInput, setKeyInput] = useState(razorpayKey || '');
+    const [systemStatus, setSystemStatus] = useState<{status: 'idle' | 'testing' | 'success' | 'error', message: string}>({status: 'idle', message: ''});
+
 
     useEffect(() => {
         setKeyInput(razorpayKey || '');
@@ -1020,6 +1022,23 @@ const App = () => {
                 addNotification(`Error: ${error.message || "Failed to read file."}`, "error");
                 setNewDriverAvatar(defaultAvatarSvg);
             }
+        }
+    };
+
+    const handleTestAIService = async () => {
+        setSystemStatus({ status: 'testing', message: 'Connecting to AI service...' });
+        try {
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+            await ai.models.generateContent({
+                model: "gemini-2.5-flash",
+                contents: "test",
+            });
+            setSystemStatus({ status: 'success', message: 'Connection successful. The AI service is responding correctly.' });
+            addNotification('AI service connection is healthy.', 'success');
+        } catch (error) {
+            console.error("AI Service Test Failed:", error);
+            setSystemStatus({ status: 'error', message: 'Connection failed. The AI service is not responding. Check backend configuration and API key validity.' });
+            addNotification('Could not connect to the AI service.', 'error');
         }
     };
 
@@ -1454,7 +1473,10 @@ const App = () => {
             .filter(b => new Date(b.date) >= new Date(new Date().setHours(0,0,0,0)) && b.bookingStatus !== 'cancelled')
             .sort((a,b) => new Date(`${a.date}T${a.time}`).getTime() - new Date(`${b.date}T${b.time}`).getTime());
 
-        const groupedByDate = upcomingBookings.reduce((acc, booking) => {
+        // FIX: Explicitly type the accumulator in the `reduce` function to prevent
+        // incorrect type inference that was causing `groupedByDate` to have a weak
+        // type, leading to a downstream error where `bookingsOnDate.map` failed.
+        const groupedByDate = upcomingBookings.reduce((acc: Record<string, Booking[]>, booking) => {
             const date = booking.date;
             if (!acc[date]) {
                 acc[date] = [];
@@ -1601,6 +1623,10 @@ const App = () => {
                                         <span>Payment Gateway</span>
                                         <span>&rarr;</span>
                                     </li>
+                                    <li className="manage-menu-item" onClick={() => setManageView('system')}>
+                                        <span>System Status</span>
+                                        <span>&rarr;</span>
+                                    </li>
                                 </ul>
                             </>
                         ) : (
@@ -1689,6 +1715,26 @@ const App = () => {
                                      </form>
                                      {!razorpayKey && <p className="config-warning">No API key set. Online payments are currently disabled.</p>}
                                  </>
+                             )}
+                             {manageView === 'system' && (
+                                <>
+                                    <h3>System Status</h3>
+                                    <div className="system-status-container">
+                                        <p>Test the connection to the generative AI service. This ensures that features like location suggestions and booking confirmations are operational.</p>
+                                        <button 
+                                            onClick={handleTestAIService} 
+                                            disabled={systemStatus.status === 'testing'}
+                                            className="secondary-btn"
+                                        >
+                                            {systemStatus.status === 'testing' ? 'Testing...' : 'Run Connection Test'}
+                                        </button>
+                                        {systemStatus.status !== 'idle' && (
+                                            <div className={`system-status-result ${systemStatus.status}`}>
+                                                {systemStatus.message}
+                                            </div>
+                                        )}
+                                    </div>
+                                </>
                              )}
                           </div>
                         </div>

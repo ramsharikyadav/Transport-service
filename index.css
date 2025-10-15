@@ -1167,6 +1167,47 @@ select:focus {
     text-align: center;
 }
 
+/* System Status */
+.system-status-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    text-align: center;
+}
+.system-status-container p {
+    font-size: 0.9rem;
+    color: var(--light-text-color);
+    margin-bottom: 8px;
+}
+.system-status-container .secondary-btn {
+    align-self: center;
+    min-width: 200px;
+}
+.system-status-result {
+    margin-top: 12px;
+    padding: 12px;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 0.9rem;
+    border: 1px solid transparent;
+    text-align: left;
+}
+.system-status-result.success {
+    background-color: #e3f9e5;
+    color: var(--success-color);
+    border-color: var(--success-color);
+}
+.system-status-result.error {
+    background-color: #fde8e4;
+    color: var(--error-color);
+    border-color: var(--error-color);
+}
+.system-status-result.testing {
+    background-color: var(--secondary-color);
+    color: var(--primary-color);
+    border-color: var(--border-color);
+}
+
 
 /* --- Calendar Styles --- */
 .calendar-container {
